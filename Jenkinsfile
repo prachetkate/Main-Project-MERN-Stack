@@ -10,7 +10,7 @@ pipeline {
 
         IMAGE_TAG = "${BUILD_NUMBER}"
 
-        // CHANGE THIS to your actual Jenkins DockerHub credential ID
+        // Jenkins credential ID for your DockerHub username/password
         DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
     }
 
@@ -57,11 +57,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        if [ -f package-lock.json ]; then
-                            npm ci
-                        else
-                            npm install
-                        fi
+                        echo "Installing backend dependencies..."
+                        npm install --no-audit --no-fund
                     '''
                 }
             }
@@ -71,11 +68,8 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
-                        if [ -f package-lock.json ]; then
-                            npm ci
-                        else
-                            npm install
-                        fi
+                        echo "Installing frontend dependencies..."
+                        npm install --no-audit --no-fund
                     '''
                 }
             }
@@ -104,6 +98,7 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
+
                 dependencyCheck(
                     odcInstallation: 'DependencyCheck',
                     additionalArguments: '''
@@ -123,6 +118,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
+
                 script {
 
                     def scannerHome = tool 'SonarQubeScanner'
@@ -153,7 +149,10 @@ pipeline {
 
         stage('Trivy Filesystem Scan') {
             steps {
+
                 sh '''
+                    echo "Running Trivy filesystem scan..."
+
                     trivy fs \
                       --scanners vuln,secret \
                       --severity HIGH,CRITICAL \
@@ -165,20 +164,28 @@ pipeline {
 
         stage('Docker Build') {
             steps {
+
                 sh '''
-                    echo "Building Backend Docker Image..."
+                    echo "========================================"
+                    echo "Building Backend Docker Image"
+                    echo "========================================"
 
                     docker build \
                       -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
                       ./backend
 
-                    echo "Building Frontend Docker Image..."
+                    echo "========================================"
+                    echo "Building Frontend Docker Image"
+                    echo "========================================"
 
                     docker build \
                       -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
                       ./frontend
 
-                    echo "Docker images created:"
+                    echo "========================================"
+                    echo "Docker Images"
+                    echo "========================================"
+
                     docker images | grep wanderlust
                 '''
             }
@@ -186,15 +193,20 @@ pipeline {
 
         stage('Trivy Docker Image Scan') {
             steps {
+
                 sh '''
-                    echo "Scanning Backend Image..."
+                    echo "========================================"
+                    echo "Scanning Backend Docker Image"
+                    echo "========================================"
 
                     trivy image \
                       --severity HIGH,CRITICAL \
                       --ignore-unfixed \
                       ${BACKEND_IMAGE}:${IMAGE_TAG}
 
-                    echo "Scanning Frontend Image..."
+                    echo "========================================"
+                    echo "Scanning Frontend Docker Image"
+                    echo "========================================"
 
                     trivy image \
                       --severity HIGH,CRITICAL \
@@ -216,11 +228,17 @@ pipeline {
                 ]) {
 
                     sh '''
+                        echo "Logging in to DockerHub..."
+
                         echo "$DOCKER_PASSWORD" | docker login \
                             -u "$DOCKER_USERNAME" \
                             --password-stdin
 
+                        echo "Pushing Backend Image..."
+
                         docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+
+                        echo "Pushing Frontend Image..."
 
                         docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
@@ -236,13 +254,13 @@ pipeline {
         success {
             echo """
             ==========================================
-                    WANDERLUST CI SUCCESS
+                  WANDERLUST CI SUCCESS
             ==========================================
 
-            Backend:
+            Backend Image:
             ${BACKEND_IMAGE}:${IMAGE_TAG}
 
-            Frontend:
+            Frontend Image:
             ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
             Build Number:
@@ -253,10 +271,17 @@ pipeline {
         }
 
         failure {
-            echo "Wanderlust CI Pipeline Failed."
+            echo """
+            ==========================================
+                  WANDERLUST CI PIPELINE FAILED
+            ==========================================
+            Check the failed stage in Console Output.
+            ==========================================
+            """
         }
 
         always {
+
             archiveArtifacts(
                 artifacts: '**/dependency-check-report.xml,**/dependency-check-report.html',
                 allowEmptyArchive: true
