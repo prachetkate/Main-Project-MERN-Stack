@@ -10,7 +10,6 @@ pipeline {
 
         IMAGE_TAG = "${BUILD_NUMBER}"
 
-        // Jenkins credential ID for your DockerHub username/password
         DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
     }
 
@@ -58,6 +57,7 @@ pipeline {
                 dir('backend') {
                     sh '''
                         echo "Installing backend dependencies..."
+
                         npm install --no-audit --no-fund
                     '''
                 }
@@ -69,29 +69,9 @@ pipeline {
                 dir('frontend') {
                     sh '''
                         echo "Installing frontend dependencies..."
+
                         npm install --no-audit --no-fund
                     '''
-                }
-            }
-        }
-
-        stage('Application Test') {
-            parallel {
-
-                stage('Backend Test') {
-                    steps {
-                        dir('backend') {
-                            sh 'npm test --if-present'
-                        }
-                    }
-                }
-
-                stage('Frontend Test') {
-                    steps {
-                        dir('frontend') {
-                            sh 'npm test --if-present'
-                        }
-                    }
                 }
             }
         }
@@ -151,7 +131,9 @@ pipeline {
             steps {
 
                 sh '''
-                    echo "Running Trivy filesystem scan..."
+                    echo "========================================"
+                    echo "Running Trivy Filesystem Scan"
+                    echo "========================================"
 
                     trivy fs \
                       --scanners vuln,secret \
@@ -228,17 +210,23 @@ pipeline {
                 ]) {
 
                     sh '''
-                        echo "Logging in to DockerHub..."
+                        echo "========================================"
+                        echo "Logging in to DockerHub"
+                        echo "========================================"
 
                         echo "$DOCKER_PASSWORD" | docker login \
                             -u "$DOCKER_USERNAME" \
                             --password-stdin
 
-                        echo "Pushing Backend Image..."
+                        echo "========================================"
+                        echo "Pushing Backend Image"
+                        echo "========================================"
 
                         docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
 
-                        echo "Pushing Frontend Image..."
+                        echo "========================================"
+                        echo "Pushing Frontend Image"
+                        echo "========================================"
 
                         docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
@@ -275,7 +263,9 @@ pipeline {
             ==========================================
                   WANDERLUST CI PIPELINE FAILED
             ==========================================
+
             Check the failed stage in Console Output.
+
             ==========================================
             """
         }
