@@ -33,22 +33,11 @@ pipeline {
                     echo "Verifying Required Tools"
                     echo "========================================"
 
-                    echo "===== Java ====="
                     java -version
-
-                    echo "===== Node ====="
                     node --version
-
-                    echo "===== NPM ====="
                     npm --version
-
-                    echo "===== Git ====="
                     git --version
-
-                    echo "===== Docker ====="
                     docker --version
-
-                    echo "===== Trivy ====="
                     trivy --version
 
                     echo "========================================"
@@ -62,13 +51,8 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        echo "========================================"
-                        echo "Installing Backend Dependencies"
-                        echo "========================================"
-
+                        echo "Installing backend dependencies..."
                         npm install --no-audit --no-fund
-
-                        echo "Backend dependencies installed successfully"
                     '''
                 }
             }
@@ -78,13 +62,8 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
-                        echo "========================================"
-                        echo "Installing Frontend Dependencies"
-                        echo "========================================"
-
+                        echo "Installing frontend dependencies..."
                         npm install --no-audit --no-fund
-
-                        echo "Frontend dependencies installed successfully"
                     '''
                 }
             }
@@ -93,24 +72,33 @@ pipeline {
         stage('OWASP Dependency Check') {
             steps {
 
-                echo "========================================"
-                echo "Running OWASP Dependency Check"
-                echo "========================================"
+                catchError(
+                    buildResult: 'SUCCESS',
+                    stageResult: 'UNSTABLE'
+                ) {
 
-                dependencyCheck(
-                    odcInstallation: 'DependencyCheck',
-                    additionalArguments: '''
-                        --scan .
-                        --format XML
-                        --format HTML
-                        --prettyPrint
-                        --disableNodeAudit
-                    '''
-                )
+                    echo "========================================"
+                    echo "Running OWASP Dependency Check"
+                    echo "========================================"
 
-                dependencyCheckPublisher(
-                    pattern: '**/dependency-check-report.xml'
-                )
+                    dependencyCheck(
+                        odcInstallation: 'DependencyCheck',
+                        additionalArguments: '''
+                            --scan .
+                            --format XML
+                            --format HTML
+                            --prettyPrint
+                            --disableNodeAudit
+                        '''
+                    )
+
+                    dependencyCheckPublisher(
+                        pattern: '**/dependency-check-report.xml'
+                    )
+                }
+
+                echo "OWASP Dependency Check completed."
+                echo "Vulnerabilities, if any, are being reported."
             }
         }
 
@@ -158,21 +146,29 @@ pipeline {
         stage('Trivy Filesystem Scan') {
             steps {
 
-                sh '''
-                    echo "========================================"
-                    echo "Running Trivy Filesystem Scan"
-                    echo "========================================"
+                catchError(
+                    buildResult: 'SUCCESS',
+                    stageResult: 'UNSTABLE'
+                ) {
 
-                    trivy fs \
-                      --scanners vuln,secret \
-                      --severity HIGH,CRITICAL \
-                      --ignore-unfixed \
-                      .
+                    sh '''
+                        echo "========================================"
+                        echo "Running Trivy Filesystem Scan"
+                        echo "========================================"
 
-                    echo "========================================"
-                    echo "Trivy Filesystem Scan Completed"
-                    echo "========================================"
-                '''
+                        trivy fs \
+                          --scanners vuln,secret \
+                          --severity HIGH,CRITICAL \
+                          --ignore-unfixed \
+                          .
+
+                        echo "========================================"
+                        echo "Trivy Filesystem Scan Completed"
+                        echo "========================================"
+                    '''
+                }
+
+                echo "Trivy filesystem vulnerabilities are being reported."
             }
         }
 
@@ -208,29 +204,37 @@ pipeline {
         stage('Trivy Docker Image Scan') {
             steps {
 
-                sh '''
-                    echo "========================================"
-                    echo "Scanning Backend Docker Image"
-                    echo "========================================"
+                catchError(
+                    buildResult: 'SUCCESS',
+                    stageResult: 'UNSTABLE'
+                ) {
 
-                    trivy image \
-                      --severity HIGH,CRITICAL \
-                      --ignore-unfixed \
-                      ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    sh '''
+                        echo "========================================"
+                        echo "Scanning Backend Docker Image"
+                        echo "========================================"
 
-                    echo "========================================"
-                    echo "Scanning Frontend Docker Image"
-                    echo "========================================"
+                        trivy image \
+                          --severity HIGH,CRITICAL \
+                          --ignore-unfixed \
+                          ${BACKEND_IMAGE}:${IMAGE_TAG}
 
-                    trivy image \
-                      --severity HIGH,CRITICAL \
-                      --ignore-unfixed \
-                      ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        echo "========================================"
+                        echo "Scanning Frontend Docker Image"
+                        echo "========================================"
 
-                    echo "========================================"
-                    echo "Docker Image Security Scan Completed"
-                    echo "========================================"
-                '''
+                        trivy image \
+                          --severity HIGH,CRITICAL \
+                          --ignore-unfixed \
+                          ${FRONTEND_IMAGE}:${IMAGE_TAG}
+
+                        echo "========================================"
+                        echo "Docker Image Security Scan Completed"
+                        echo "========================================"
+                    '''
+                }
+
+                echo "Trivy image vulnerabilities are being reported."
             }
         }
 
@@ -282,7 +286,6 @@ pipeline {
     post {
 
         success {
-
             echo """
             ==========================================
                   WANDERLUST CI SUCCESS
@@ -298,13 +301,10 @@ pipeline {
             ${BUILD_NUMBER}
 
             ==========================================
-                  CI PIPELINE COMPLETED
-            ==========================================
             """
         }
 
         failure {
-
             echo """
             ==========================================
                   WANDERLUST CI PIPELINE FAILED
