@@ -203,7 +203,7 @@ pipeline {
 
                 withCredentials([
                     usernamePassword(
-                        credentialsId: "${DOCKERHUB_CREDENTIALS}",
+                        credentialsId: "${dockerhub-cred}",
                         usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
