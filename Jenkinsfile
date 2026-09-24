@@ -9,8 +9,6 @@ pipeline {
         FRONTEND_IMAGE = 'prachetkate111/wanderlust-frontend'
 
         IMAGE_TAG = "${BUILD_NUMBER}"
-
-        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
     }
 
     stages {
@@ -31,6 +29,10 @@ pipeline {
         stage('Verify Tools') {
             steps {
                 sh '''
+                    echo "========================================"
+                    echo "Verifying Required Tools"
+                    echo "========================================"
+
                     echo "===== Java ====="
                     java -version
 
@@ -48,6 +50,10 @@ pipeline {
 
                     echo "===== Trivy ====="
                     trivy --version
+
+                    echo "========================================"
+                    echo "All tools verified"
+                    echo "========================================"
                 '''
             }
         }
@@ -56,9 +62,13 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        echo "Installing backend dependencies..."
+                        echo "========================================"
+                        echo "Installing Backend Dependencies"
+                        echo "========================================"
 
                         npm install --no-audit --no-fund
+
+                        echo "Backend dependencies installed successfully"
                     '''
                 }
             }
@@ -68,9 +78,13 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
-                        echo "Installing frontend dependencies..."
+                        echo "========================================"
+                        echo "Installing Frontend Dependencies"
+                        echo "========================================"
 
                         npm install --no-audit --no-fund
+
+                        echo "Frontend dependencies installed successfully"
                     '''
                 }
             }
@@ -78,6 +92,10 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
+
+                echo "========================================"
+                echo "Running OWASP Dependency Check"
+                echo "========================================"
 
                 dependencyCheck(
                     odcInstallation: 'DependencyCheck',
@@ -101,6 +119,10 @@ pipeline {
 
                 script {
 
+                    echo "========================================"
+                    echo "Running SonarQube Analysis"
+                    echo "========================================"
+
                     def scannerHome = tool 'SonarQubeScanner'
 
                     withSonarQubeEnv('SonarQube') {
@@ -120,10 +142,16 @@ pipeline {
         stage('SonarQube Quality Gate') {
             steps {
 
+                echo "========================================"
+                echo "Waiting for SonarQube Quality Gate"
+                echo "========================================"
+
                 timeout(time: 10, unit: 'MINUTES') {
 
                     waitForQualityGate abortPipeline: true
                 }
+
+                echo "SonarQube Quality Gate Passed"
             }
         }
 
@@ -140,6 +168,10 @@ pipeline {
                       --severity HIGH,CRITICAL \
                       --ignore-unfixed \
                       .
+
+                    echo "========================================"
+                    echo "Trivy Filesystem Scan Completed"
+                    echo "========================================"
                 '''
             }
         }
@@ -165,7 +197,7 @@ pipeline {
                       ./frontend
 
                     echo "========================================"
-                    echo "Docker Images"
+                    echo "Docker Images Created"
                     echo "========================================"
 
                     docker images | grep wanderlust
@@ -194,6 +226,10 @@ pipeline {
                       --severity HIGH,CRITICAL \
                       --ignore-unfixed \
                       ${FRONTEND_IMAGE}:${IMAGE_TAG}
+
+                    echo "========================================"
+                    echo "Docker Image Security Scan Completed"
+                    echo "========================================"
                 '''
             }
         }
@@ -201,18 +237,20 @@ pipeline {
         stage('DockerHub Push') {
             steps {
 
+                echo "========================================"
+                echo "Pushing Images to DockerHub"
+                echo "========================================"
+
                 withCredentials([
                     usernamePassword(
-                        credentialsId: "${dockerhub-cred}",
+                        credentialsId: 'dockerhub-cred',
                         usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
 
                     sh '''
-                        echo "========================================"
-                        echo "Logging in to DockerHub"
-                        echo "========================================"
+                        echo "Logging in to DockerHub..."
 
                         echo "$DOCKER_PASSWORD" | docker login \
                             -u "$DOCKER_USERNAME" \
@@ -230,6 +268,10 @@ pipeline {
 
                         docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
+                        echo "========================================"
+                        echo "DockerHub Push Completed"
+                        echo "========================================"
+
                         docker logout
                     '''
                 }
@@ -240,6 +282,7 @@ pipeline {
     post {
 
         success {
+
             echo """
             ==========================================
                   WANDERLUST CI SUCCESS
@@ -255,10 +298,13 @@ pipeline {
             ${BUILD_NUMBER}
 
             ==========================================
+                  CI PIPELINE COMPLETED
+            ==========================================
             """
         }
 
         failure {
+
             echo """
             ==========================================
                   WANDERLUST CI PIPELINE FAILED
