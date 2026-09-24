@@ -33,11 +33,22 @@ pipeline {
                     echo "Verifying Required Tools"
                     echo "========================================"
 
+                    echo "Java:"
                     java -version
+
+                    echo "Node:"
                     node --version
+
+                    echo "NPM:"
                     npm --version
+
+                    echo "Git:"
                     git --version
+
+                    echo "Docker:"
                     docker --version
+
+                    echo "Trivy:"
                     trivy --version
 
                     echo "========================================"
@@ -51,7 +62,10 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                        echo "Installing backend dependencies..."
+                        echo "========================================"
+                        echo "Installing Backend Dependencies"
+                        echo "========================================"
+
                         npm install --no-audit --no-fund
                     '''
                 }
@@ -62,7 +76,10 @@ pipeline {
             steps {
                 dir('frontend') {
                     sh '''
-                        echo "Installing frontend dependencies..."
+                        echo "========================================"
+                        echo "Installing Frontend Dependencies"
+                        echo "========================================"
+
                         npm install --no-audit --no-fund
                     '''
                 }
@@ -98,7 +115,6 @@ pipeline {
                 }
 
                 echo "OWASP Dependency Check completed."
-                echo "Vulnerabilities, if any, are being reported."
             }
         }
 
@@ -168,7 +184,7 @@ pipeline {
                     '''
                 }
 
-                echo "Trivy filesystem vulnerabilities are being reported."
+                echo "Trivy filesystem scan completed."
             }
         }
 
@@ -300,6 +316,8 @@ pipeline {
             Build Number:
             ${BUILD_NUMBER}
 
+            ==========================================
+                  CI PIPELINE COMPLETED
             ==========================================
             """
         }
